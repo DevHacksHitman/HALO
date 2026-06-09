@@ -1,0 +1,24 @@
+# Foundry
+out/
+cache/
+broadcast/
+
+# Node / frontend
+node_modules/
+.next/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local secrets
+.env
+.env*
+!.env.example
+
+# Deployment-local state
+.vercel/
+
+# OS/editor noise
+.DS_Store
