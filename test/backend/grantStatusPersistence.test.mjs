@@ -77,6 +77,37 @@ describe("Halo grant status persistence", () => {
     assert.doesNotMatch(JSON.stringify(info), /secret-token/);
   });
 
+  it("accepts Vercel Upstash integration env names when canonical aliases are locked", async () => {
+    const fake = createFakeUpstashFetch();
+    const env = {
+      UPSTASH_REDIS_REST_KV_REST_API_URL: "https://vercel-generated.upstash.io/",
+      UPSTASH_REDIS_REST_KV_REST_API_TOKEN: "integration-token",
+      HALO_GRANT_STATUS_REDIS_KEY: "halo:vercel-generated",
+    };
+
+    const grant = await recordGrantStatus(
+      {
+        taskId: "task-vercel-integration",
+        status: 200,
+        receipt: {transactionHash: txHash},
+        receivedAt: "2026-06-14T17:15:00.000Z",
+      },
+      {
+        env,
+        fetchImpl: fake.fetch,
+      },
+    );
+
+    assert.equal(grant.status, GRANT_STATUS.PAID);
+    assert.equal(fake.commands[0].url, "https://vercel-generated.upstash.io");
+    assert.equal(fake.commands[0].headers.authorization, "Bearer integration-token");
+    assert.deepEqual(fake.commands[0].command.slice(0, 2), ["RPUSH", "halo:vercel-generated"]);
+
+    const info = getGrantStatusPersistenceInfo({env});
+    assert.equal(info.mode, "upstash-redis");
+    assert.equal(info.host, "vercel-generated.upstash.io");
+  });
+
   it("lists persisted events newest first and preserves paid status against late pending events", async () => {
     const fake = createFakeUpstashFetch([
       {

@@ -85,10 +85,17 @@ UPSTASH_REDIS_REST_TOKEN=...
 HALO_GRANT_STATUS_REDIS_KEY=halo:grant-status-events
 ```
 
+If the Vercel Upstash integration creates locked variables such as
+`KV_REST_API_URL`, `KV_REST_API_TOKEN`,
+`UPSTASH_REDIS_REST_KV_REST_API_URL`, or
+`UPSTASH_REDIS_REST_KV_REST_API_TOKEN`, Halo can read those as fallbacks.
+The canonical `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`
+names are still preferred when you can add manual aliases.
+
 After first deploy, set:
 
 ```bash
-HALO_ONESHOT_WEBHOOK_URL=https://your-vercel-url.vercel.app/api/webhooks/1shot
+HALO_ONESHOT_WEBHOOK_URL=https://halofund.vercel.app/api/webhooks/1shot
 ```
 
 Then redeploy.

@@ -2,6 +2,8 @@ import type {GrantEvent, GrantStatusRecord} from "./grantStatus.mjs";
 
 export const UPSTASH_REDIS_REST_URL_ENV_VAR: "UPSTASH_REDIS_REST_URL";
 export const UPSTASH_REDIS_REST_TOKEN_ENV_VAR: "UPSTASH_REDIS_REST_TOKEN";
+export const UPSTASH_REDIS_REST_URL_FALLBACK_ENV_VARS: readonly string[];
+export const UPSTASH_REDIS_REST_TOKEN_FALLBACK_ENV_VARS: readonly string[];
 export const GRANT_STATUS_REDIS_KEY_ENV_VAR: "HALO_GRANT_STATUS_REDIS_KEY";
 export const DEFAULT_GRANT_STATUS_REDIS_KEY: "halo:grant-status-events";
 
