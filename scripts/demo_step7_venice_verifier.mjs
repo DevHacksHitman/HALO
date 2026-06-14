@@ -1,4 +1,7 @@
 import {
+  VENICE_X402_BASE_USDC_ADDRESS,
+  VENICE_X402_NETWORK,
+  buildVeniceX402ShadowProbeReport,
   buildReceiptVerificationRequest,
   buildVeniceTopUpProbeRequest,
   evaluateReceiptVerification,
@@ -65,6 +68,38 @@ console.log("");
 console.log("[x402] Top-up probe request:");
 console.log(JSON.stringify(buildVeniceTopUpProbeRequest(), null, 2));
 
+const venicePaymentRequired = {
+  x402Version: 2,
+  accepts: [
+    {
+      protocol: "x402",
+      version: 2,
+      scheme: "exact",
+      network: VENICE_X402_NETWORK,
+      asset: VENICE_X402_BASE_USDC_ADDRESS,
+      payTo: venicePaymaster,
+      amount: "5000000",
+    },
+  ],
+};
+const shadowReport = buildVeniceX402ShadowProbeReport({
+  responseStatus: 402,
+  paymentRequired: venicePaymentRequired,
+  body: {
+    minimumTopUpUsd: 5,
+    topUpInstructions: {
+      network: VENICE_X402_NETWORK,
+      tokenAddress: VENICE_X402_BASE_USDC_ADDRESS,
+    },
+  },
+  currentRelayChainId: chainId,
+  currentRelayAsset: usdcToken,
+});
+
+console.log("");
+console.log("[x402] Shadow-mode Venice settlement boundary:");
+console.log(JSON.stringify(shadowReport, null, 2));
+
 const paymentRequired = parsePaymentRequiredHeader(
   JSON.stringify({
     accepts: [
@@ -84,10 +119,12 @@ const topUp = prepareVeniceX402TopUpRelay({
   paymentRequired,
   permissionContext,
   asset: usdcToken,
+  network: "base-sepolia",
   destinationUrl: "https://example.com/api/webhooks/venice",
 });
 
 console.log("");
+console.log("[VENICE] Construction proof only; live x402 settlement remains NO-GO.");
 for (const line of topUp.logs) {
   console.log(line);
 }

@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   GRANT_STATUS,
   createGrantStatusStore,
+  normalizeOneShotStatus,
   parseOneShotWebhookPayload,
   reduceGrantEvent,
 } from "../../lib/grantStatus.mjs";
@@ -64,6 +65,45 @@ describe("Halo grant status webhooks", () => {
     assert.equal(third.status, GRANT_STATUS.PAID);
     assert.equal(third.txHash, txHash);
     assert.equal(third.events.length, 3);
+  });
+
+  it("normalizes numeric 1Shot relayer statuses", () => {
+    assert.equal(normalizeOneShotStatus(100), GRANT_STATUS.RELAYING);
+    assert.equal(normalizeOneShotStatus(110), GRANT_STATUS.RELAYING);
+    assert.equal(normalizeOneShotStatus(200), GRANT_STATUS.PAID);
+    assert.equal(normalizeOneShotStatus(400), GRANT_STATUS.FAILED);
+    assert.equal(normalizeOneShotStatus(500), GRANT_STATUS.FAILED);
+  });
+
+  it("normalizes public-relayer webhook type/data payloads", () => {
+    const submitted = parseOneShotWebhookPayload({
+      type: 4,
+      data: {
+        id: taskId,
+        hash: txHash,
+      },
+      receivedAt: "2026-06-02T12:00:00.000Z",
+    });
+    const confirmed = parseOneShotWebhookPayload({
+      type: 0,
+      data: {
+        id: taskId,
+        status: 200,
+        receipt: {
+          transactionHash: txHash,
+          logs: ["confirmed"],
+        },
+      },
+      receivedAt: "2026-06-02T12:01:00.000Z",
+    });
+
+    assert.equal(submitted.status, GRANT_STATUS.RELAYING);
+    assert.equal(submitted.rawStatus, "4");
+    assert.equal(submitted.txHash, txHash);
+    assert.equal(confirmed.status, GRANT_STATUS.PAID);
+    assert.equal(confirmed.rawStatus, "200");
+    assert.equal(confirmed.txHash, txHash);
+    assert.deepEqual(confirmed.logs, ["confirmed"]);
   });
 
   it("stores and lists grant statuses newest first", () => {

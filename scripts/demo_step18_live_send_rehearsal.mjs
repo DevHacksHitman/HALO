@@ -147,7 +147,6 @@ const preflight = buildOneShotEstimatePreflight({
     ...(liveEstimateRequested ? [] : ["HALO_ONESHOT_ESTIMATE_LIVE=1 is required for Step 18 fresh estimate"]),
     ...(feePaymentIssue ? [feePaymentIssue] : []),
   ],
-  memo: "Halo Step 18 live send rehearsal",
   requestId: 18,
 });
 

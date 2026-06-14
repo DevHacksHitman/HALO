@@ -12,7 +12,8 @@ import {
   selectEstimateContext,
 } from "../../lib/oneShotLiveSendRehearsal.mjs";
 import {buildErc20TransferExecution} from "../../lib/oneShotFeePlan.mjs";
-import {ONESHOT_RELAYER_TESTNET_RPC_URL} from "../../lib/oneShot.mjs";
+import {ONESHOT_RELAYER_MAINNET_RPC_URL, ONESHOT_RELAYER_TESTNET_RPC_URL} from "../../lib/oneShot.mjs";
+import {BASE_MAINNET_USDC_ADDRESS} from "../../lib/chainProfiles.mjs";
 
 const permissionContext = encodeDelegations([
   {
@@ -48,8 +49,21 @@ const estimateResult = {
   requiredPaymentAmount: "10000",
   context: "signed-estimate-context",
 };
+const mainnetPermissionGrantJson = JSON.stringify({
+  context: permissionContext,
+  authorizationList: [
+    {
+      chainId: 8453,
+      address: "0x5555555555555555555555555555555555555555",
+      nonce: "0x1",
+      yParity: 0,
+      r: "0x" + "11".repeat(32),
+      s: "0x" + "22".repeat(32),
+    },
+  ],
+});
 
-function buildReadyPreflight() {
+function buildReadyPreflight({destinationUrl = "https://halo-webhook.ngrok.app/api/webhooks/1shot"} = {}) {
   return buildOneShotEstimatePreflight({
     permissionContext,
     endpoint: ONESHOT_RELAYER_TESTNET_RPC_URL,
@@ -58,6 +72,28 @@ function buildReadyPreflight() {
     relayerTargetWallet: "0x1111111111111111111111111111111111111111",
     feePaymentExecution,
     feePaymentPlan,
+    destinationUrl,
+  });
+}
+
+function buildReadyMainnetPreflight({destinationUrl = "https://halo-webhook.ngrok.app/api/webhooks/1shot"} = {}) {
+  return buildOneShotEstimatePreflight({
+    permissionContext: "",
+    permissionGrantJson: mainnetPermissionGrantJson,
+    chainProfile: "base-mainnet",
+    endpoint: ONESHOT_RELAYER_MAINNET_RPC_URL,
+    liveEstimateEnabled: true,
+    liveSendEnabled: false,
+    relayerTargetWallet: "0x1111111111111111111111111111111111111111",
+    feePaymentExecution: buildErc20TransferExecution({
+      token: BASE_MAINNET_USDC_ADDRESS,
+      recipient: "0x5555555555555555555555555555555555555555",
+      amount: 10_000,
+    }),
+    feePaymentPlan: {...feePaymentPlan, chainId: "8453", token: BASE_MAINNET_USDC_ADDRESS.toLowerCase()},
+    usdcToken: BASE_MAINNET_USDC_ADDRESS,
+    amount: 1_000_000,
+    destinationUrl,
   });
 }
 
@@ -109,8 +145,22 @@ describe("1Shot live send rehearsal", () => {
     assert.equal(rehearsal.readyForNetworkSend, false);
     assert.equal(rehearsal.sendRequest.method, "relayer_send7710Transaction");
     assert.equal(rehearsal.sendParams.context, estimateResult.context);
+    assert.equal(rehearsal.sendParams.memo, undefined);
     assert.ok(logs.some((line) => line.includes("network send is still disabled")));
     assert.ok(logs.some((line) => line.includes("estimate context hash=")));
+  });
+
+  it("blocks live send when the webhook URL is still the dry-run placeholder", () => {
+    const rehearsal = buildOneShotLiveSendRehearsal({
+      preflight: buildReadyPreflight({destinationUrl: "https://example.com/api/webhooks/1shot"}),
+      estimateResult,
+      feePaymentPlan,
+      liveSendEnabled: true,
+    });
+
+    assert.equal(rehearsal.status, LIVE_SEND_REHEARSAL_STATUS.BLOCKED);
+    assert.equal(rehearsal.webhookUrlReadyForLiveSend, false);
+    assert.ok(rehearsal.issues.some((issue) => issue.includes("placeholder host example.com")));
   });
 
   it("runs live send only after the rehearsal gate passes", async () => {
@@ -134,6 +184,53 @@ describe("1Shot live send rehearsal", () => {
     });
 
     assert.deepEqual(result, {taskId: "0xabc"});
+  });
+
+  it("blocks Base mainnet live send until HALO_MAINNET_DEMO_ARMED is set", () => {
+    const previous = process.env.HALO_MAINNET_DEMO_ARMED;
+    delete process.env.HALO_MAINNET_DEMO_ARMED;
+    try {
+      const rehearsal = buildOneShotLiveSendRehearsal({
+        preflight: buildReadyMainnetPreflight(),
+        estimateResult: {...estimateResult, gasUsed: {"8453": "471571"}},
+        feePaymentPlan,
+        liveSendEnabled: true,
+      });
+
+      assert.equal(rehearsal.status, LIVE_SEND_REHEARSAL_STATUS.BLOCKED);
+      assert.equal(rehearsal.chainProfile, "base-mainnet");
+      assert.equal(rehearsal.mainnetReadiness.ready, false);
+      assert.ok(rehearsal.issues.some((issue) => issue.includes("HALO_MAINNET_DEMO_ARMED")));
+    } finally {
+      if (previous === undefined) {
+        delete process.env.HALO_MAINNET_DEMO_ARMED;
+      } else {
+        process.env.HALO_MAINNET_DEMO_ARMED = previous;
+      }
+    }
+  });
+
+  it("allows Base mainnet send params only after arming and caps pass", () => {
+    const previous = process.env.HALO_MAINNET_DEMO_ARMED;
+    process.env.HALO_MAINNET_DEMO_ARMED = "1";
+    try {
+      const rehearsal = buildOneShotLiveSendRehearsal({
+        preflight: buildReadyMainnetPreflight(),
+        estimateResult: {...estimateResult, gasUsed: {"8453": "471571"}},
+        feePaymentPlan,
+        liveSendEnabled: true,
+      });
+
+      assert.equal(rehearsal.status, LIVE_SEND_REHEARSAL_STATUS.READY_LIVE_SEND);
+      assert.equal(rehearsal.mainnetReadiness.status, "CONDITIONAL_GO_MAINNET_ARMED");
+      assert.equal(rehearsal.sendParams.chainId, "8453");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.HALO_MAINNET_DEMO_ARMED;
+      } else {
+        process.env.HALO_MAINNET_DEMO_ARMED = previous;
+      }
+    }
   });
 
   it("can select context from contextByChainId when top-level context is absent", () => {

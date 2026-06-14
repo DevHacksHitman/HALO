@@ -46,7 +46,9 @@ export function summarizePermissionGrantShape(grant: unknown): {
   grantKeys: string[];
   authorizationListPresent: boolean;
   authorizationListCount: number | null;
+  authorizationListValid: boolean;
 };
+export function normalizeAuthorizationList(value: unknown): unknown[] | undefined;
 export function normalizeGrantDependencies(value: unknown): PermissionGrantDependency[];
 export function buildDependencyDeploymentPlan(args?: {
   grant?: unknown;

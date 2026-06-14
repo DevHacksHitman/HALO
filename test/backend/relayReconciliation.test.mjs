@@ -9,7 +9,7 @@ import {
   formatRelayReconciliationLogs,
 } from "../../lib/relayReconciliation.mjs";
 
-describe("Step 20 relay reconciliation", () => {
+describe("Relay reconciliation boundary", () => {
   it("redacts balance target addresses into hashes", () => {
     const summary = buildBalanceTargetSummary({
       donorAddress: "0x1111111111111111111111111111111111111111",

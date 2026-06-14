@@ -58,7 +58,6 @@ const estimateReport = buildBaseSepoliaEstimateRequestFromPermissionContext({
   permissionContext: handoff.context,
   executions: [execution],
   destinationUrl: "https://example.com/api/webhooks/1shot",
-  memo: "Halo Step 12 real context handoff check",
   requestId: 12,
 });
 

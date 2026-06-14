@@ -38,14 +38,15 @@ describe("1Shot relay confirmation", () => {
       taskId,
       grantId: "grant-step19",
       statusResult: {
-        status: "success",
-        transactionHash: txHash,
+        status: 200,
+        receipt: {transactionHash: txHash},
         logs: ["submitted", "confirmed"],
       },
     });
     const classification = classifyOneShotStatusResult({taskId, statusResult: payload});
 
     assert.equal(payload.metadata.grantId, "grant-step19");
+    assert.equal(payload.status, 200);
     assert.equal(classification.status, RELAY_CONFIRMATION_STATUS.STATUS_PAID);
     assert.equal(classification.grantStatus, "PAID");
     assert.equal(classification.txHashPresent, true);
@@ -55,11 +56,12 @@ describe("1Shot relay confirmation", () => {
   it("classifies submitted statuses as relaying rather than paid", () => {
     const classification = classifyOneShotStatusResult({
       taskId,
-      statusResult: {status: "submitted"},
+      statusResult: {status: 110, hash: txHash},
     });
 
     assert.equal(classification.status, RELAY_CONFIRMATION_STATUS.STATUS_RELAYING);
     assert.equal(classification.grantStatus, "RELAYING");
+    assert.equal(classification.txHashPresent, true);
   });
 
   it("returns unknown status when the relayer result cannot be normalized", () => {
@@ -88,7 +90,7 @@ describe("1Shot relay confirmation", () => {
           json: async () => ({
             jsonrpc: "2.0",
             id: request.id,
-            result: calls === 1 ? {status: "submitted"} : {status: "success", txHash},
+            result: calls === 1 ? {status: 110, hash: txHash} : {status: 200, receipt: {transactionHash: txHash}},
           }),
         };
       },

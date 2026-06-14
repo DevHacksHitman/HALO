@@ -1,31 +1,40 @@
-import {TerminalPanel} from "@/components/TerminalPanel";
-import {statusCards, statusTerminalLines} from "@/lib/uiData";
+import {GrantStatusClient} from "@/components/GrantStatusClient";
 
 export default function StatusPage() {
   return (
     <main className="page-grid">
       <section className="main-panel" aria-labelledby="status-title">
-        <div className="section-kicker">Status console</div>
-        <h1 id="status-title">Webhook-ready grant status tracking.</h1>
+        <div className="section-kicker">Status proof</div>
+        <h1 id="status-title">1Shot-confirmed grant status.</h1>
         <p className="lede">
-          Step 8 turns relayer callbacks into append-only grant events so the demo can show
-          verification, relay progress, and payout status without pooled custody.
+          Halo marks a grant paid only after <code>relayer_getStatus=200</code> or a signed
+          1Shot webhook. This page reads real grant data from <code>/api/grants</code>,
+          no sample paid cards are rendered.
         </p>
 
-        <section className="status-grid" aria-label="Grant status preview">
-          {statusCards.map((card) => (
-            <article key={card.title} className={`status-card ${card.state.toLowerCase()}`}>
-              <span>{card.state}</span>
-              <h2>{card.title}</h2>
-              <p>{card.detail}</p>
-              <code>{card.taskId}</code>
-            </article>
-          ))}
-        </section>
+        <GrantStatusClient />
       </section>
 
-      <aside className="side-panel" aria-label="Webhook terminal preview">
-        <TerminalPanel title="Webhook Flow Logs" lines={statusTerminalLines} />
+      <aside className="side-panel status-help-panel" aria-label="How status works">
+        <section className="status-explainer">
+          <span>Judge proof</span>
+          <h2>No guesswork.</h2>
+          <ul>
+            <li>1Shot status is normalized into Halo grant state.</li>
+            <li>Confirmed paid requires relayer_getStatus=200 or a signed webhook.</li>
+            <li>Task and transaction references are hashed for recording.</li>
+            <li>Upstash makes the status log durable on Vercel.</li>
+          </ul>
+        </section>
+
+        <section className="status-explainer reviewer-note">
+          <span>Boundary</span>
+          <h2>Base Sepolia proof.</h2>
+          <p>
+            Step 20 is the status-confirmed Base Sepolia payout proof. Mainnet
+            execution remains strictly locked by the Step 24 preflight boundary.
+          </p>
+        </section>
       </aside>
     </main>
   );

@@ -16,6 +16,7 @@ import {
   ONESHOT_RELAYER_MAINNET_RPC_URL,
   ONESHOT_RELAYER_TESTNET_RPC_URL,
 } from "../../lib/oneShot.mjs";
+import {BASE_MAINNET_USDC_ADDRESS} from "../../lib/chainProfiles.mjs";
 import {buildErc20TransferExecution} from "../../lib/oneShotFeePlan.mjs";
 
 const permissionContext = encodeDelegations([
@@ -34,6 +35,36 @@ const permissionContext = encodeDelegations([
     signature: "0xabcd",
   },
 ]);
+const redelegatedPermissionContext = encodeDelegations([
+  {
+    delegate: "0x9999999999999999999999999999999999999999",
+    delegator: "0x2222222222222222222222222222222222222222",
+    authority: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    caveats: [
+      {
+        enforcer: "0x3333333333333333333333333333333333333333",
+        terms: "0x01",
+        args: "0x",
+      },
+    ],
+    salt: 1n,
+    signature: "0xabcd",
+  },
+  {
+    delegate: "0x1111111111111111111111111111111111111111",
+    delegator: "0x9999999999999999999999999999999999999999",
+    authority: "0x" + "12".repeat(32),
+    caveats: [
+      {
+        enforcer: "0x3333333333333333333333333333333333333333",
+        terms: "0x02",
+        args: "0x",
+      },
+    ],
+    salt: 2n,
+    signature: "0xdcba",
+  },
+]);
 
 const relayerTargetWallet = "0x1111111111111111111111111111111111111111";
 const feePaymentExecution = buildErc20TransferExecution({
@@ -48,6 +79,19 @@ const permissionGrantJson = JSON.stringify({
     {
       factory: "0xdddddddddddddddddddddddddddddddddddddddd",
       factoryData: "0x1234",
+    },
+  ],
+});
+const permissionGrantWithAuthorizationJson = JSON.stringify({
+  context: permissionContext,
+  authorizationList: [
+    {
+      chainId: 8453,
+      address: "0x5555555555555555555555555555555555555555",
+      nonce: "0x1",
+      yParity: 0,
+      r: "0x" + "11".repeat(32),
+      s: "0x" + "22".repeat(32),
     },
   ],
 });
@@ -89,6 +133,41 @@ describe("1Shot live estimate preflight", () => {
 
     assert.equal(preflight.status, ESTIMATE_PREFLIGHT_STATUS.BLOCKED);
     assert.ok(preflight.issues.some((issue) => issue.includes("mainnet")));
+  });
+
+  it("uses the Base mainnet profile only when explicitly selected and a 7702 path exists", () => {
+    const blocked = buildOneShotEstimatePreflight({
+      permissionContext,
+      chainProfile: "base-mainnet",
+      liveEstimateEnabled: true,
+      relayerTargetWallet,
+      feePaymentExecution,
+      usdcToken: BASE_MAINNET_USDC_ADDRESS,
+      amount: 1_000_000,
+    });
+
+    assert.equal(blocked.status, ESTIMATE_PREFLIGHT_STATUS.BLOCKED);
+    assert.equal(blocked.chainProfile, "base-mainnet");
+    assert.equal(blocked.endpoint, ONESHOT_RELAYER_MAINNET_RPC_URL);
+    assert.ok(blocked.issues.some((issue) => issue.includes("no deployed 7702 account code")));
+
+    const ready = buildOneShotEstimatePreflight({
+      permissionContext: "",
+      permissionGrantJson: permissionGrantWithAuthorizationJson,
+      chainProfile: "base-mainnet",
+      liveEstimateEnabled: true,
+      relayerTargetWallet,
+      feePaymentExecution,
+      usdcToken: BASE_MAINNET_USDC_ADDRESS,
+      amount: 1_000_000,
+    });
+
+    assert.equal(ready.status, ESTIMATE_PREFLIGHT_STATUS.READY_LIVE_ESTIMATE);
+    assert.equal(ready.chainId, 8453);
+    assert.equal(ready.expectedEndpoint, ONESHOT_RELAYER_MAINNET_RPC_URL);
+    assert.equal(ready.authorizationListPassedThrough, true);
+    assert.equal(ready.estimateReport.params.authorizationList.length, 1);
+    assert.equal(ready.estimateReport.params.chainId, "8453");
   });
 
   it("runs live estimate only after preflight passes", async () => {
@@ -214,7 +293,34 @@ describe("1Shot live estimate preflight", () => {
     assert.equal(preflight.status, ESTIMATE_PREFLIGHT_STATUS.BLOCKED);
     assert.equal(preflight.firstDelegationDelegate, relayerTargetWallet);
     assert.equal(preflight.delegateMatchesRelayerTarget, false);
-    assert.ok(preflight.issues.some((issue) => issue.includes("first delegation delegate")));
+    assert.ok(preflight.issues.some((issue) => issue.includes("final delegation delegate")));
+  });
+
+  it("requires a two-hop redelegation chain before allowing A2A public claims", () => {
+    const direct = buildOneShotEstimatePreflight({
+      permissionContext,
+      liveEstimateEnabled: true,
+      relayerTargetWallet,
+      feePaymentExecution,
+      requireA2A: true,
+    });
+
+    assert.equal(direct.status, ESTIMATE_PREFLIGHT_STATUS.BLOCKED);
+    assert.equal(direct.a2aPublicClaimAllowed, false);
+    assert.ok(direct.issues.some((issue) => issue.includes("length >=2")));
+
+    const redelegated = buildOneShotEstimatePreflight({
+      permissionContext: redelegatedPermissionContext,
+      liveEstimateEnabled: true,
+      relayerTargetWallet,
+      feePaymentExecution,
+      requireA2A: true,
+    });
+
+    assert.equal(redelegated.status, ESTIMATE_PREFLIGHT_STATUS.READY_LIVE_ESTIMATE);
+    assert.equal(redelegated.a2aPublicClaimAllowed, true);
+    assert.equal(redelegated.finalDelegationDelegate, relayerTargetWallet);
+    assert.equal(redelegated.a2aProof.delegationChainLength, 2);
   });
 
   it("classifies a 1Shot estimateGas revert as accepted auth plus simulation failure", () => {

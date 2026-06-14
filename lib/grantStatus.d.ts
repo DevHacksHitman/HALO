@@ -23,6 +23,7 @@ export interface GrantStatusRecord {
 
 export const GRANT_STATUS: Record<GrantStatus, GrantStatus>;
 export function parseOneShotWebhookPayload(payload: unknown, now?: Date): GrantEvent;
+export function normalizeGrantEvent(event: unknown): GrantEvent;
 export function reduceGrantEvent(currentGrant: GrantStatusRecord | null, event: GrantEvent): GrantStatusRecord;
 export function createGrantStatusStore(): {
   record(payloadOrEvent: unknown): GrantStatusRecord;

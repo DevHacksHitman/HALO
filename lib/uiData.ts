@@ -1,80 +1,54 @@
 export const stepProofs = [
   {
-    label: "Step 1",
-    value: "10 tests",
-    detail: "Master Almoner caveat boundaries are passing.",
+    label: "MetaMask",
+    value: "live",
+    detail: "Donor permission capture happens in the app, with raw context redacted.",
   },
   {
-    label: "Step 2",
-    value: "8 tests",
-    detail: "Verifier and Treasurer payload builders are passing.",
+    label: "Venice",
+    value: "Step 21",
+    detail: "Live verifier turns the inhaler receipt into structured grant reasoning.",
   },
   {
-    label: "Step 3",
-    value: "6 tests",
-    detail: "Backend 1Shot relay drafts are passing.",
+    label: "x402",
+    value: "Step 22",
+    detail: "Payment requirement is captured in shadow mode with no USDC spend.",
   },
   {
-    label: "Step 4",
-    value: "3 routes",
-    detail: "Next.js app shell builds and routes locally.",
+    label: "A2A",
+    value: "Step 23",
+    detail: "Two-hop Verifier and Treasurer redelegation proof is available in-app.",
   },
   {
-    label: "Step 5",
-    value: "4 tests",
-    detail: "MetaMask Advanced Permission request builder is passing.",
-  },
-  {
-    label: "Step 6",
-    value: "5 tests",
-    detail: "1Shot ERC-7710 relay request shape is passing.",
-  },
-  {
-    label: "Step 7",
-    value: "6 tests",
-    detail: "Venice/x402 verifier flow is passing.",
-  },
-  {
-    label: "Step 8",
-    value: "4 tests",
-    detail: "Webhook status reducer is passing.",
-  },
-  {
-    label: "Step 9",
-    value: "4 tests",
-    detail: "Base Sepolia deploy config is passing.",
+    label: "1Shot",
+    value: "Step 20",
+    detail: "Paid state is status-backed through /api/grants, not a static sample.",
   },
 ];
 
 export const workflowColumns = [
   {
-    title: "Permissions",
-    items: ["EIP-7702 upgrade path", "ERC-7715 scoped allowance", "ERC-7710 redelegation chain"],
+    title: "Donor",
+    items: ["Connect MetaMask", "Grant scoped USDC permission", "Keep funds out of pooled custody"],
   },
   {
     title: "Agents",
-    items: ["Master Almoner scopes caveats", "Verifier prepares x402 fee payment", "Treasurer prepares grant payout"],
+    items: ["Venice verifies receipt evidence", "A2A splits Verifier and Treasurer lanes", "x402 remains shadow until settlement is wired"],
   },
   {
-    title: "Execution",
-    items: ["USDC remains in donor wallet", "1Shot relays delegated execution", "Webhook updates grant status"],
+    title: "Status",
+    items: ["1Shot returns TaskId/status", "Webhook or polling confirms terminal state", "PAID appears only after confirmation"],
   },
 ];
 
 export const terminalLines = [
-  "$ forge test -vvv",
-  "[PASS] HaloAlmonerTest: 10 passed",
-  "[PASS] HaloSubAgentsTest: 8 passed",
-  "$ npm run test:backend",
-  "[PASS] Halo backend bridge: 5 passed",
-  "[PASS] Halo deploy config: 4 passed",
-  "[PASS] Halo Venice verifier: 6 passed",
-  "[PASS] Halo grant status: 4 passed",
-  "[1Shot] Draft target=USDC token",
-  "[VENICE] x402 top-up parsed",
-  "[WEBHOOK] status events append-only",
-  "[EVM] recipient encoded in transfer calldata",
-  "[1Shot] transactions[0].permissionContext validated",
+  "[DEMO] Frontend path is the primary recording surface.",
+  "[MetaMask] Donor permission request remains live in /donor.",
+  "[VENICE] /api/venice/verify keeps VENICE_API_KEY server-side.",
+  "[x402] /api/venice/x402-shadow sends no X-402-Payment header.",
+  "[A2A] /api/a2a/proof exposes chain length and lane summaries only.",
+  "[1Shot] /status reads reducer-backed /api/grants data.",
+  "[BOUNDARY] No browser button triggers a live relay send.",
 ];
 
 export const donorSteps = [
@@ -105,32 +79,11 @@ export const donorTerminalLines = [
 ];
 
 export const requestTerminalLines = [
-  "[REQUEST] Claim intake shell mounted.",
-  "[A2A] Master agent trigger queued.",
-  "[x402] Verifier payment draft tested.",
-  "[VENICE] Receipt verification request tested.",
-  "[TREASURER] Grant payout draft tested.",
-];
-
-export const statusCards = [
-  {
-    state: "VERIFYING",
-    title: "Inhaler refill",
-    detail: "Requester evidence is being checked by the Venice verifier flow.",
-    taskId: "grant-local-001",
-  },
-  {
-    state: "RELAYING",
-    title: "1Shot payout draft",
-    detail: "Treasurer execution is prepared and waiting for live permission context.",
-    taskId: "0xaaaaaaaa...aaaa",
-  },
-  {
-    state: "PAID",
-    title: "Webhook success sample",
-    detail: "A local webhook event can mark a grant paid and attach the tx hash.",
-    taskId: "0xbbbbbbbb...bbbb",
-  },
+  "[REQUEST] Need and amount stay editable for the demo.",
+  "[VENICE] Live verifier route returns structured decision.",
+  "[x402] Shadow route captures payment requirement only.",
+  "[A2A] Proof route rejects one-hop direct delegation.",
+  "[BOUNDARY] Requester page cannot call relayer_send7710Transaction.",
 ];
 
 export const statusTerminalLines = [
@@ -139,23 +92,5 @@ export const statusTerminalLines = [
   "[STORE] Grant event appended.",
   "[STATUS] UI reads /api/grants.",
   "[STATUS] Paid grants cannot be downgraded.",
-  "[SECURITY] Live signature verification waits for provider signature details.",
-];
-
-export const grantFeed = [
-  {
-    amount: "$25",
-    title: "Inhaler refill",
-    detail: "Pending Venice verification and 1Shot payout wiring.",
-  },
-  {
-    amount: "$30",
-    title: "Baby formula",
-    detail: "Demo copy for anonymous community feed.",
-  },
-  {
-    amount: "$18",
-    title: "Transit fare",
-    detail: "Webhook status card placeholder.",
-  },
+  "[SECURITY] Live callbacks require a verified signature.",
 ];

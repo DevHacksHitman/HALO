@@ -37,7 +37,6 @@ const report = buildBaseSepoliaEstimateRequestFromPermissionContext({
   permissionContext,
   executions: [execution],
   destinationUrl: "https://example.com/api/webhooks/1shot",
-  memo: "Halo Step 11 Base Sepolia estimate",
   requestId: 11,
 });
 

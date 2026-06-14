@@ -122,7 +122,7 @@ Here is the sequential logic that drives the AI reasoning and verification.
 // services/VerifierAgent.ts
 import { fetchWithX402 } from "../lib/x402Fetcher";
 
-const VENICE_VISION_MODEL = "mistral-31-24b"; // Standard vision model
+const VENICE_VISION_MODEL = "google-gemma-3-27b-it"; // Fast verifier model for the demo
 const VENICE_TEXT_MODEL = "zai-org-glm-5.1"; // Standard text model
 const MAX_ALLOWANCE = 30.0; // Capped by ERC-7710 Caveat
 

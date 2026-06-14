@@ -55,6 +55,7 @@ describe("1Shot public relayer payloads", () => {
 
     assert.equal(params.chainId, "84532");
     assert.equal(params.context, '{"quote":"signed"}');
+    assert.equal(params.memo, undefined);
     assert.equal(params.transactions.length, 1);
     assert.deepEqual(
       params.transactions[0].permissionContext,

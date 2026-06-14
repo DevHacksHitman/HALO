@@ -1,6 +1,9 @@
 export const BASE_SEPOLIA_CHAIN_ID: 84532;
 export const BASE_SEPOLIA_CHAIN_ID_HEX: "0x14a34";
 export const BASE_SEPOLIA_USDC_ADDRESS: `0x${string}`;
+export const BASE_MAINNET_CHAIN_ID: 8453;
+export const BASE_MAINNET_CHAIN_ID_HEX: "0x2105";
+export const BASE_MAINNET_USDC_ADDRESS: `0x${string}`;
 export const HALO_PERMISSION_TYPE: "erc20-token-periodic";
 export const USDC_DECIMALS: 6;
 export const MONTH_SECONDS: number;
@@ -11,6 +14,7 @@ export type HaloPermissionRequest = {
   chainId: number;
   from: `0x${string}`;
   to: `0x${string}`;
+  relayerTargetAddress?: `0x${string}`;
   expiry: number;
   permission: {
     type: "erc20-token-periodic";
@@ -40,6 +44,8 @@ export function formatShortAddress(address: string): string;
 export function createHaloPermissionRequest(options?: {
   donorAddress?: string;
   sessionAccount?: string;
+  relayerTargetAddress?: string;
+  targetAddress?: string;
   usdcToken?: string;
   chainId?: number;
   monthlyCapUsdc?: string;
@@ -47,7 +53,14 @@ export function createHaloPermissionRequest(options?: {
   nowSeconds?: number;
   expirySeconds?: number;
 }): HaloPermissionRequest;
+export function createHaloPermissionRequestForProfile(options?: Parameters<typeof createHaloPermissionRequest>[0] & {
+  profile?: {
+    chainId: number;
+    usdcAddress: string;
+  };
+}): HaloPermissionRequest;
 export function serializePermissionRequest(
   request: HaloPermissionRequest,
 ): SerializableHaloPermissionRequest;
 export function createSerializableHaloPermissionRequest(options?: Parameters<typeof createHaloPermissionRequest>[0]): SerializableHaloPermissionRequest;
+export function createSerializableHaloPermissionRequestForProfile(options?: Parameters<typeof createHaloPermissionRequestForProfile>[0]): SerializableHaloPermissionRequest;

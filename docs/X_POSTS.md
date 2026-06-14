@@ -24,13 +24,19 @@
 
 > HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step18_live_send_rehearsal.sh
 
-> HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step19_live_relay_confirmation.sh
+> HALO_STEP19_GRANT_USDC=1 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step19_relay_reconciliation.sh
 
-> HALO_STEP19_REQUESTER_ADDRESS=0x... HALO_STEP19_GRANT_USDC=1 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=1 scripts/demo_step19_live_relay_confirmation.sh
+> HALO_STEP20_GRANT_USDC=1 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_STEP20_STATUS_POLL_ATTEMPTS=8 HALO_STEP20_STATUS_POLL_INTERVAL_MS=3000 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=1 scripts/demo_step20_relay_reconciliation.sh
 
-> HALO_STEP20_GRANT_USDC=1 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step20_relay_reconciliation.sh
+> HALO_GRANT_STATUS_SYNC_URL=http://127.0.0.1:3000/api/grants HALO_STATUS_REPOLL_STEP=20 HALO_STATUS_REPOLL_ATTEMPTS=3 HALO_STATUS_REPOLL_INTERVAL_MS=2000 scripts/demo_step20_status_repoll.sh
 
-> HALO_STEP20_GRANT_USDC=1 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=1 scripts/demo_step20_relay_reconciliation.sh
+> VENICE_VISION_MODEL=google-gemma-3-27b-it scripts/demo_step21_venice_live_verifier.sh
+
+> scripts/demo_step22_venice_x402_shadow_probe.sh
+
+> scripts/demo_step23_a2a_redelegation_proof.sh
+
+> HALO_MAINNET_DEMO_GRANT_USDC=5 HALO_ONESHOT_ESTIMATE_INITIAL_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step24_mainnet_preflight.sh
 
 ##
 
@@ -287,21 +293,43 @@ Title: Live-send rehearsal gate
 Description: Added a fresh-estimate live-send rehearsal gate for 1Shot. latest proof returned success=true, matched the planned USDC fee payment to requiredPaymentAmount at 10,000 atoms, built relayer_send7710Transaction params. no network send was attempted.
 ```
 
+**Step 18 Caption**
+Step 18: live 1Shot estimate passed, fee matched, and Halo built send params. Live send stayed blocked. Estimate is not payout.
+
+**Step 18 Checkpoint**
+fresh 1Shot estimate + send-gate rehearsal passed. Fee matched, send disabled, no payout claim.
+
 Step 19 checkpoint:
 
 ```text
 Type: Testing
-Title: Relay send + status confirmation gate
-Description: Added the guarded Step 19 relay-confirmation path. It reuses the fresh-estimate/send gate, redacts raw context/taskId/tx hash, and only polls relayer status after HALO_ONESHOT_LIVE=1 returns a task id. Safe proof keeps HALO_ONESHOT_LIVE=0, so send/status remain disabled until explicit approval.
+Title: Relay reconciliation dry-run
+Description: Rehearsed the relay reconciliation boundary after the Step 18 send gate. The fresh 1Shot estimate succeeded, the final planned USDC fee matched the returned quote, requester/donor/fee targets were checked, live send stayed disabled, and no TaskId or paid claim was created.
 ```
+
+Step 19 GO: reconciliation dry-run passed. Quote fee matched, targets checked, live send disabled. No TaskId, no paid claim.
 
 Step 20 checkpoint:
 
 ```text
 Type: Testing
-Title: Relay reconciliation boundary
-Description: Added Step 20 reconciliation after a live send response without TaskId. The proof snapshots redacted USDC balances, reruns the gated estimate/send path, handles direct-string TaskId responses, polls status when possible, and blocks paid claims unless relayer status or a signed webhook confirms success.
+Title: Live relay paid confirmation
+Description: Live Base Sepolia 1Shot send returned a TaskId after the fee execution matched the estimate quote. Halo re-polled the saved TaskId without resending, relayer_getStatus returned 200, tx hash was present, /status synced to PAID, and donor/requester/fee-collector balances reconciled exactly.
 ```
+
+Step 19 is **GO** as the dry-run reconciliation proof. It must not use paid wording.
+
+**Step 19 Caption**
+Step 19: relay reconciliation dry-run passed. Quote fee matched, requester/donor/fee targets checked, live send stayed disabled. No TaskId, no paid claim.
+
+**Step 19 Checkpoint**
+Step 19 GO: reconciliation dry-run passed. Quote fee matched, targets checked, live send disabled. No TaskId, no paid claim.
+
+**Step 20 Caption**
+Step 20: live 1Shot send returned TaskId, relayer_getStatus=200, tx hash present, /status=PAID, balances reconciled exactly.
+
+**Step 20 Checkpoint**
+Step 20 GO: live 1Shot send returned TaskId, status=200, tx hash present, /status=PAID, balances reconciled. No resend.
 
 ### Feedback Note Candidate
 
@@ -567,33 +595,25 @@ For this Base Sepolia grant: dependencies=0, authorizationList=false. No depende
 
 Media: Step 18 live-send rehearsal terminal recording.
 
-Safe recording command:
+The exact Step 18 command is still correct:
 
 ```bash
 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step18_live_send_rehearsal.sh
 ```
 
-Only after explicit approval for a testnet relay send:
+It ran successfully here. Result: live estimate succeeded, required payment matched the planned fee, send params were built, and **network send was not called**. No new TaskId was created.
 
-```bash
-HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=1 scripts/demo_step18_live_send_rehearsal.sh
-```
-
-Caption:
+For the Step 18 post, use “explicit live-send switch” publicly instead of naming `HALO_ONESHOT_LIVE`. Public wording can be:
 
 ```text
-Step 18 proof for Halo: 1Shot live-send rehearsal gate is wired.
+Step 18 for Halo: fresh 1Shot live estimate + live-send rehearsal gate.
 
-The script runs a fresh Base Sepolia estimate first, requires success=true, requires the returned estimate context, and checks the planned USDC fee payment against requiredPaymentAmount.
+The relayer accepted the estimate path, returned a successful fee requirement, and Halo built the send params only after the planned fee matched the estimate.
 
-This proof matched 10,000 fee atoms to 10,000 required atoms and built relayer_send7710Transaction params.
+Network send stayed disabled behind an explicit live-send switch.
 
-HALO_ONESHOT_LIVE stayed off, so no relay send was attempted.
-
-@MetaMaskDev @1ShotAPI @AskVenice #BuildInPublic
+Boundary: estimate success is not payout. Halo only claims paid after relayer status=200 or a signed webhook confirms it.
 ```
-
-Optional reply under Step 18:
 
 ```text
 Boundary that matters here:
@@ -603,60 +623,77 @@ estimate success is not the same as payout.
 Halo only moves from estimate -> send when the estimate context exists, the fee quote matches the planned USDC execution, and HALO_ONESHOT_LIVE is explicitly enabled.
 ```
 
-HackQuest checkpoint note:
+Yes, that command is correct for **Step 18 safe recording**:
 
-```text
-Use the Step 18 checkpoint above with the terminal recording. Keep the wording as "live-send rehearsal gate" rather than "live payout" unless the next step actually returns a 1Shot task id and the status/webhook confirms it.
+```bash
+HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step18_live_send_rehearsal.sh
 ```
+
+It proves:
+
+- live 1Shot estimate is enabled
+- live send remains disabled
+- initial fee plan starts at `0.01 USDC`, then final fee follows the estimate quote
+- estimate context is present
+- send params are built
+- no relay transaction is sent
+
+For public Step 18, use wording like:
+
+Step 18 for Halo: fresh 1Shot live estimate + live-send rehearsal gate.
+
+The relayer accepted the estimate path, returned a successful fee requirement, and Halo built send params only after the planned USDC fee matched the estimate.
+
+Live send stayed disabled behind an explicit switch
+
+Boundary: estimate success is not payout. Halo only says paid after relayer status=200 or a signed webhook confirms it.
+
+@MetaMaskDev @1ShotAPI @AskVenice #BuildInPublic
+
+### Step 19/20 Public Posting Decision
+
+Verdict: **GO** to separate Step 19 and Step 20.
+
+Recommended public order:
+
+1. **Step 18:** fresh live estimate + send-gate rehearsal.
+2. **Step 19:** relay reconciliation dry-run; no send, no TaskId, no paid claim.
+3. **Step 20:** live send, TaskId, `relayer_getStatus=200`, tx hash, `/status=PAID`, exact balance reconciliation.
+4. Move to Venice/x402 after the relay boundary is documented.
 
 ### Step 19 Reply
 
 Media: Step 19 terminal recording.
 
-Safe recording command:
+Recording command:
 
 ```bash
-HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step19_live_relay_confirmation.sh
+HALO_STEP19_GRANT_USDC=1 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step19_relay_reconciliation.sh
 ```
 
-Only after explicit approval for the live Base Sepolia relay send:
-
-```bash
-HALO_STEP19_REQUESTER_ADDRESS=0x... HALO_STEP19_GRANT_USDC=1 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=1 scripts/demo_step19_live_relay_confirmation.sh
-```
-
-Caption for safe proof:
+HackQuest checkpoint:
 
 ```text
-Step 19 proof for Halo: relay-send confirmation path is wired.
-
-The script re-runs a fresh Base Sepolia 1Shot estimate, checks the 10,000-atom fee quote, builds send params, and keeps taskId/status handling redacted for public proof.
-
-HALO_ONESHOT_LIVE stayed off here, so no relay send was attempted. The next proof needs explicit live-send approval before a task id can be returned and polled.
-
-@MetaMaskDev @1ShotAPI @AskVenice #BuildInPublic
+Step 19 GO: reconciliation dry-run passed. Quote fee matched, targets checked, live send disabled. No TaskId, no paid claim.
 ```
 
-Caption only if live send returns a task id:
+X caption:
 
 ```text
-Step 19 live proof for Halo: Base Sepolia relay send returned a 1Shot task id.
+Step 19 for Halo: Relay reconciliation dry-run.
 
-Halo kept raw taskId and tx hash out of public logs, then polled relayer status before making any payout claim.
+After the Step 18 send-gate rehearsal, Halo ran the reconciliation path with a fresh 1Shot live estimate.
 
-Status/webhook confirmation is the boundary before marking a grant paid.
+The quote fee matched.
+Requester/donor/fee targets were checked.
+The send path was ready.
 
-@MetaMaskDev @1ShotAPI @AskVenice #BuildInPublic
-```
+But live send stayed disabled.
 
-Caption if live send reaches the relayer but no TaskId is returned:
+No TaskId.
+No paid claim.
 
-```text
-Step 19 debug note for Halo: the Base Sepolia relay-send gate opened after a successful 1Shot estimate, but the send response did not include a TaskId.
-
-Halo treated that as NO-GO for payout confirmation. No public "paid" claim until relayer status or a signed webhook confirms the task.
-
-This is exactly why the confirmation gate exists.
+This is the boundary I wanted visible before the actual live relay. Halo can prove ready to send without pretending that readiness is payment.
 
 @MetaMaskDev @1ShotAPI @AskVenice #BuildInPublic
 ```
@@ -665,50 +702,217 @@ This is exactly why the confirmation gate exists.
 
 Media: Step 20 terminal recording.
 
-Safe recording command:
+Live proof command:
 
 ```bash
-HALO_STEP20_GRANT_USDC=1 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step20_relay_reconciliation.sh
+HALO_STEP20_GRANT_USDC=1 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_STEP20_STATUS_POLL_ATTEMPTS=8 HALO_STEP20_STATUS_POLL_INTERVAL_MS=3000 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=1 scripts/demo_step20_relay_reconciliation.sh
 ```
 
-Only after explicit approval for a live Base Sepolia retry:
+No-send status recovery command, only if the saved TaskId exists and the first poll/webhook did not settle visibly:
 
 ```bash
-HALO_STEP20_GRANT_USDC=1 HALO_ONESHOT_ESTIMATE_MOCK_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=1 scripts/demo_step20_relay_reconciliation.sh
+HALO_GRANT_STATUS_SYNC_URL=http://127.0.0.1:3000/api/grants HALO_STATUS_REPOLL_STEP=20 HALO_STATUS_REPOLL_ATTEMPTS=3 HALO_STATUS_REPOLL_INTERVAL_MS=2000 scripts/demo_step20_status_repoll.sh
 ```
 
-Caption if Step 20 returns a TaskId or confirmed status:
+HackQuest checkpoint:
 
 ```text
-Step 20 proof for Halo: relay reconciliation is wired after the live-send gate.
+Step 20 GO: live 1Shot send returned TaskId, status=200, tx hash present, /status=PAID, balances reconciled. No resend.
+```
 
-Halo reruns the fresh Base Sepolia estimate, retries only through the same guarded send path, redacts raw task/tx identifiers, and polls relayer status when a TaskId is returned.
+X caption:
 
-Paid claims still wait for relayer status or signed webhook confirmation.
+```text
+Step 20 for Halo is GO. Relay reconciliation
+
+Live Base Sepolia 1Shot send returned a TaskId after Halo used the 1Shot estimate quote as the fee boundary.
+
+relayer_getStatus returned 200, /status synced to PAID, tx hash was present, and balances reconciled exactly:
+
+donor -1.01 USDC
+requester +1.00 USDC
+fee collector +0.01 USDC
+
+TaskId alone was not treated as paid. Paid only after terminal relayer status.
 
 @MetaMaskDev @1ShotAPI @AskVenice #BuildInPublic
 ```
 
-Caption if Step 20 still has no TaskId and no confirmed balance movement:
+### Step 21 Reply
+
+Media: Step 21 terminal recording.
+
+Live proof command:
+
+```bash
+VENICE_VISION_MODEL=google-gemma-3-27b-it scripts/demo_step21_venice_live_verifier.sh
+```
+
+HackQuest checkpoint:
 
 ```text
-Step 20 debug note for Halo: the relay reconciliation gate is doing its job.
+Step 21 GO: live Venice AI verified a synthetic receipt, returned structured grant reasoning, and produced a requester message. No x402 spend yet.
+```
 
-Fresh estimate and send checks run, but without a TaskId, status, signed webhook, or matching balance movement, Halo keeps the grant out of "paid" state.
+X caption:
 
-No custody shortcut. No public paid claim without confirmation.
+Step 21 for Halo: live Venice AI verifier proof.
+
+Using HackQuest Venice credits, Halo sent a synthetic receipt + urgent need into Venice and got back structured grant reasoning.
+
+Receipt: asthma inhaler refill
+Requested: $25
+Decision: approved
+Output: parsed into Halo’s grant logic
+
+What matters here is not just “AI saw an image.”
+
+Venice becomes the judgment layer between raw evidence and humane action:
+
+- extract the receipt facts
+- compare them to the stated need
+- return structured reasoning
+- produce a requester-facing message that does not feel like a cold rejection engine
+
+Boundary stayed strict: this is live Venice intelligence, not x402 settlement yet.
+
+Next: capture the real Venice x402 payment requirement, then wire it into ERC-7710/A2A.
+
+@MetaMaskDev @1ShotAPI @AskVenice #BuildInPublic
+
+Venice becomes the judgment layer between evidence and action: structured enough for protocol enforcement, human-readable enough for dignity-preserving decisions.
+
+Production note:
+
+This also points toward fraud-resistant verification, not “AI police.”
+
+Venice can help check receipt/need consistency, extract amount/date/vendor/category, flag mismatch or tampering signals, detect duplicate receipt hashes, and route uncertain cases to manual review.
+
+### Step 22 Reply
+
+Media: Step 22 terminal recording.
+
+Live shadow command:
+
+```bash
+scripts/demo_step22_venice_x402_shadow_probe.sh
+```
+
+HackQuest checkpoint:
+
+```text
+Step 22 GO: Halo captured Venice’s real x402 payment requirement in shadow mode: Base mainnet USDC, no settlement, no paid claim.
+```
+
+X caption:
+
+```text
+Step 22 for Halo: Venice x402 shadow probe.
+
+After proving live Venice receipt intelligence in Step 21, Halo moved to the payment boundary.
+
+This step calls Venice’s x402 top-up discovery path and captures the real payment requirement without settling it.
+
+Captured:
+- x402 requirement
+- Base mainnet network: eip155:8453
+- USDC asset
+- receiver/payTo boundary
+- required amount in atoms
+- MetaMask/x402 package readiness
+
+No X-402-Payment header was sent.
+No USDC was spent.
+No 1Shot relay was called.
+No paid claim was made.
+
+This is the bridge from “Venice can judge the request” to “Halo can pay for that intelligence through an ERC-7710/A2A-controlled wallet path.”
+
+Next: A2A redelegation proof, then mainnet preflight.
 
 @MetaMaskDev @1ShotAPI @AskVenice #BuildInPublic
 ```
 
-Caption if balances move but no TaskId is returned:
+### Step 23 Reply
+
+Media: Step 23 terminal recording.
+
+Local proof command:
+
+```bash
+scripts/demo_step23_a2a_redelegation_proof.sh
+```
+
+HackQuest checkpoint:
 
 ```text
-Step 20 reconciliation note for Halo: USDC balance movement can support debugging, but it is not enough for a paid claim by itself.
+Step 23 GO: Halo proved A2A redelegation with chain length >=2 across Verifier and Treasurer lanes. Direct delegation is rejected.
+```
 
-Halo still waits for 1Shot TaskId/status or a signed webhook before marking a grant paid.
+X caption:
 
-That boundary protects the audit trail.
+```text
+Step 23 for Halo: A2A redelegation proof.
+
+After Venice x402 shadow discovery, Halo proved the coordination layer.
+
+This is not a direct donor -> relayer permission.
+
+Halo shows:
+- donor smart account -> Master/Almoner
+- Master/Almoner -> Verifier lane
+- Master/Almoner -> Treasurer lane
+- final delegate matches the 1Shot relayer target
+- direct one-hop delegation is rejected for A2A claims
+
+Verifier lane is scoped for Venice/x402.
+Treasurer lane is scoped for requester payout.
+
+No live execution. This is coordination-layer proof only.
+
+This is the A2A boundary. specialized agents get narrow redelegated authority, not broad wallet control.
+
+@MetaMaskDev @1ShotAPI @AskVenice #BuildInPublic
+```
+
+### Step 24 Reply
+
+Media: Step 24 terminal recording.
+
+Mainnet preflight command:
+
+```bash
+HALO_MAINNET_DEMO_GRANT_USDC=5 HALO_ONESHOT_ESTIMATE_INITIAL_FEE_USDC=0.01 HALO_ONESHOT_ESTIMATE_LIVE=1 HALO_ONESHOT_LIVE=0 scripts/demo_step24_mainnet_preflight.sh
+```
+
+HackQuest checkpoint:
+
+```text
+Step 24 GO: Halo ran Base mainnet preflight: prod 1Shot profile, relayer target, caps, 7702 readiness, and A2A compatibility checked. No send.
+```
+
+X caption:
+
+```text
+Step 24 for Halo: Base mainnet preflight.
+
+No send yet.
+
+This step checks the real production boundary: 
+- Base mainnet profile
+- 1Shot production relayer
+- live relayer targetAddress
+- Base USDC
+- grant + relayer fee caps
+- 7702 smart-account readiness
+- A2A chain length >=2
+- final delegate matches the relayer target
+
+If the estimate runs, it is estimate-only.
+No TaskId.
+No webhook mutation.
+No /status PAID.
+No mainnet payout claim.
 
 @MetaMaskDev @1ShotAPI @AskVenice #BuildInPublic
 ```
@@ -948,7 +1152,7 @@ Even small details matter. delegation salt is a JSON-RPC quantity (0x1), not byt
 Catching that before live relay made the permission -> estimate path much easier to audit
 ```
 
-Verdict: **GO as a Step 11 follow-up reply.**  
+Verdict: **GO as a Step 11 follow-up reply.**
 Do not attach it to Step 11’s main post unless you need to save space/time.
 
 ### **Conditional GO.** Pairing them makes sense, but do it carefully.
@@ -1109,3 +1313,7 @@ Once the correct MetaMask Flask + Base Sepolia flow was active, the same integra
 ```
 
 So: main post = lesson. Checklist = internal/project notes, unless you want a second short reply.
+
+```
+
+```

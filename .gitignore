@@ -16,6 +16,7 @@ pnpm-debug.log*
 .env
 .env*
 !.env.example
+.halo-local/
 
 # Deployment-local state
 .vercel/

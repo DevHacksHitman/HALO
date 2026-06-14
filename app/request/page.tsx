@@ -1,44 +1,43 @@
+import {RequesterAgentClient} from "@/components/RequesterAgentClient";
 import {TerminalPanel} from "@/components/TerminalPanel";
 import {requestTerminalLines} from "@/lib/uiData";
-
-const messages = [
-  {from: "halo", text: "What urgent need can the community help with today?"},
-  {from: "user", text: "I need help covering a $25 inhaler refill."},
-  {from: "halo", text: "Upload the receipt or pharmacy notice and I will verify it privately."},
-  {from: "user", text: "Receipt uploaded. Amount is $25.00."},
-  {from: "halo", text: "Verification and payout routing are queued for the next integration step."},
-];
 
 export default function RequestPage() {
   return (
     <main className="page-grid">
       <section className="main-panel" aria-labelledby="request-title">
         <div className="section-kicker">Requester console</div>
-        <h1 id="request-title">A clear request flow for urgent help.</h1>
+        <h1 id="request-title">A live verifier flow for urgent help.</h1>
         <p className="lede">
-          This shell keeps requester UX easy to navigate for non-technical users while the backend prepares Venice,
-          x402 and 1Shot activity behind the scenes.
+          The requester enters a need, Halo runs the Venice verifier from the app, then shows
+          x402 and A2A proof boundaries without triggering a live 1Shot send.
         </p>
 
-        <section className="chat-surface" aria-label="Requester chat preview">
-          {messages.map((message, index) => (
-            <div key={`${message.from}-${index}`} className={`chat-row ${message.from}`}>
-              <p>{message.text}</p>
-            </div>
-          ))}
-          <form className="chat-input" aria-label="Request input preview">
-            <input value="Next step: wire image upload and Venice verification" readOnly />
-            <button type="button" aria-label="Attach receipt">
-              +
-            </button>
-          </form>
-        </section>
+        <RequesterAgentClient />
       </section>
 
-      <aside className="side-panel" aria-label="Requester terminal preview">
+      <aside className="side-panel status-help-panel" aria-label="Requester terminal preview">
+        <section className="status-explainer">
+          <span>Judge proof</span>
+          <h2>Venice & A2A tracks.</h2>
+          <ul>
+            <li><strong>Venice AI</strong> parses the receipt securely.</li>
+            <li><strong>A2A coordination:</strong> Permissions are redelegated through Verifier & Treasurer lanes.</li>
+            <li>x402 payment requirements are discovered dynamically.</li>
+          </ul>
+        </section>
+
+        <section className="status-explainer reviewer-note">
+          <span>Boundary</span>
+          <h2>Shadow discovery only.</h2>
+          <p>
+            No live payment header, no USDC spend, no 1Shot send yet. 
+            This boundary proves readiness before execution.
+          </p>
+        </section>
+
         <TerminalPanel title="Requester Flow Logs" lines={requestTerminalLines} />
       </aside>
     </main>
   );
 }
-

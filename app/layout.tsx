@@ -1,18 +1,12 @@
 import type {Metadata} from "next";
 import Link from "next/link";
+import {Nav} from "../components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Halo",
   description: "Autonomous programmable mutual aid fund.",
 };
-
-const navItems = [
-  {href: "/", label: "Overview"},
-  {href: "/donor", label: "Donor"},
-  {href: "/request", label: "Requester"},
-  {href: "/status", label: "Status"},
-];
 
 export default function RootLayout({children}: Readonly<{children: React.ReactNode}>) {
   return (
@@ -24,18 +18,15 @@ export default function RootLayout({children}: Readonly<{children: React.ReactNo
               <span className="brand-mark">H</span>
               <span>Halo</span>
             </Link>
-            <nav className="nav-links">
-              {navItems.map((item) => (
-                <Link key={item.href} href={item.href}>
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-            <div className="status-pill" aria-label="Current build status">
-              Step 8 Status
-            </div>
+            <Nav />
           </header>
           {children}
+          <footer className="site-boundary" aria-label="Demo boundary">
+            <span>Halo</span>
+            <span>HackQuest demo</span>
+            <span>Base Sepolia execution proof</span>
+            <span>Mainnet paid claim gated</span>
+          </footer>
         </div>
       </body>
     </html>

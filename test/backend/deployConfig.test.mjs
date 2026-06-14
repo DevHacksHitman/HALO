@@ -4,8 +4,10 @@ import {describe, it} from "node:test";
 import {
   BASE_SEPOLIA_CHAIN_ID,
   buildForgeDeploymentPlan,
+  createHaloDeployConfig,
   createBaseSepoliaDeployConfig,
   missingBaseSepoliaDeployKeys,
+  missingHaloDeployKeys,
   redactDeployConfig,
 } from "../../lib/deployConfig.mjs";
 
@@ -41,6 +43,25 @@ describe("Base Sepolia deployment config", () => {
     assert.match(plan.commands[2], /HaloAlmoner/);
     assert.match(plan.commands[2], /0x036cbd53842c5426634e7929541ec2318f3dcf7e/);
     assert.doesNotMatch(plan.commands.join("\n"), /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
+  });
+
+  it("builds a Base mainnet deployment plan from profile-specific env vars", () => {
+    const config = createHaloDeployConfig({
+      chainProfile: "base-mainnet",
+      env: {
+        ...baseEnv,
+        BASE_MAINNET_RPC_URL: "https://base-mainnet.example",
+        BASE_MAINNET_PRIVATE_KEY: baseEnv.BASE_SEPOLIA_PRIVATE_KEY,
+      },
+    });
+    const plan = buildForgeDeploymentPlan(config);
+
+    assert.equal(config.chainProfile, "base-mainnet");
+    assert.equal(config.chainId, 8453);
+    assert.equal(config.chainName, "Base mainnet");
+    assert.match(plan.commands[0], /\$BASE_MAINNET_RPC_URL/);
+    assert.match(plan.commands[0], /\$BASE_MAINNET_PRIVATE_KEY/);
+    assert.equal(missingHaloDeployKeys({chainProfile: "base-mainnet", env: baseEnv}).includes("BASE_MAINNET_RPC_URL"), true);
   });
 
   it("uses preconfigured agent addresses when helpers are already deployed", () => {

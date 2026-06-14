@@ -1,0 +1,19 @@
+{
+  "createdAt": "2026-06-11T23:08:17.052Z",
+  "generator": "Venice /image/generate",
+  "model": "z-image-turbo",
+  "seed": 240611,
+  "variants": 4,
+  "files": [
+    "public/brand/halo-avatar-venice-01.webp",
+    "public/brand/halo-avatar-venice-02.webp",
+    "public/brand/halo-avatar-venice-03.webp",
+    "public/brand/halo-avatar-venice-04.webp"
+  ],
+  "promptSummary": "Square Halo avatar: refined H monogram, subtle protective ring, sage/mint/coral operational palette.",
+  "boundaries": [
+    "No private key logged",
+    "No VENICE_API_KEY logged",
+    "Generated raster review candidates only"
+  ]
+}

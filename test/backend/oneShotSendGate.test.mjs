@@ -49,6 +49,7 @@ describe("1Shot capped send gate", () => {
     assert.equal(gate.readyForNetworkSend, false);
     assert.equal(gate.sendRequest.method, "relayer_send7710Transaction");
     assert.equal(gate.grantAmountAtoms, "25000000");
+    assert.equal(gate.sendRequest.params.memo, undefined);
   });
 
   it("blocks grants above the treasurer cap", () => {
@@ -79,6 +80,7 @@ describe("1Shot capped send gate", () => {
       estimateResult,
       endpoint: ONESHOT_RELAYER_TESTNET_RPC_URL,
       liveSendEnabled: true,
+      destinationUrl: "https://halo-webhook.ngrok.app/api/webhooks/1shot",
     });
 
     const result = await runOneShotSendAfterGate(gate, {
@@ -93,6 +95,19 @@ describe("1Shot capped send gate", () => {
     });
 
     assert.deepEqual(result, {taskId: "0xabc"});
+  });
+
+  it("blocks live send with the dry-run placeholder webhook URL", () => {
+    const gate = buildOneShotSendGate({
+      permissionContext,
+      estimateResult,
+      endpoint: ONESHOT_RELAYER_TESTNET_RPC_URL,
+      liveSendEnabled: true,
+    });
+
+    assert.equal(gate.status, SEND_GATE_STATUS.BLOCKED);
+    assert.equal(gate.webhookUrlReadyForLiveSend, false);
+    assert.ok(gate.issues.some((issue) => issue.includes("placeholder host example.com")));
   });
 
   it("parses estimate result JSON and formats recording-safe logs", () => {

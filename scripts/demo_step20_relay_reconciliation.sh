@@ -30,6 +30,7 @@ load_local_env() {
 }
 
 load_local_env
+export HALO_RELAY_RECONCILIATION_STEP="${HALO_RELAY_RECONCILIATION_STEP:-20}"
 
 echo "Halo Step 20 Terminal Proof"
 echo "Relay reconciliation + final confirmation boundary"

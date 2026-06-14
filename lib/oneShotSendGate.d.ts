@@ -11,9 +11,14 @@ export type OneShotSendGate = {
   step: 14;
   title: "Capped 1Shot testnet send gate";
   status: string;
-  chainId: 84532;
+  chainProfile: string;
+  chainLabel: string;
+  chainId: number;
   endpoint: string;
   expectedEndpoint: string;
+  usdcToken: string;
+  destinationUrl: string;
+  webhookUrlReadyForLiveSend: boolean;
   realContextPresent: boolean;
   estimateResultPresent: boolean;
   estimateResultHash: string | null;
@@ -30,6 +35,7 @@ export type OneShotSendGate = {
 export function buildOneShotSendGate(args?: {
   permissionContext?: string;
   estimateResult?: string | Record<string, unknown>;
+  chainProfile?: string;
   endpoint?: string;
   liveSendEnabled?: boolean;
   allowMainnetEndpoint?: boolean;
@@ -37,7 +43,6 @@ export function buildOneShotSendGate(args?: {
   recipient?: string;
   amount?: string | number | bigint;
   destinationUrl?: string;
-  memo?: string;
   requestId?: number;
 }): OneShotSendGate;
 

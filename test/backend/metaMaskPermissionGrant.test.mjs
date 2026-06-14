@@ -6,6 +6,7 @@ import {
   buildDependencyDeploymentPlan,
   buildPermissionGrantEnvCommand,
   formatDependencyDeploymentLogs,
+  normalizeAuthorizationList,
   parsePermissionGrantJson,
   redactDependencyDeploymentPlan,
   redactGrantDependencies,
@@ -41,6 +42,27 @@ describe("MetaMask full grant diagnostics", () => {
     assert.ok(shape.grantKeys.includes("context"));
     assert.equal(shape.authorizationListPresent, true);
     assert.equal(shape.authorizationListCount, 1);
+    assert.equal(shape.authorizationListValid, true);
+  });
+
+  it("passes through at most one wallet-supplied 7702 authorization", () => {
+    const authorizationList = normalizeAuthorizationList([
+      {
+        chainId: 8453,
+        address: "0x5555555555555555555555555555555555555555",
+        nonce: "0x1",
+        yParity: 0,
+        r: "0x" + "11".repeat(32),
+        s: "0x" + "22".repeat(32),
+      },
+    ]);
+
+    assert.equal(authorizationList.length, 1);
+    assert.equal(authorizationList[0].address, "0x5555555555555555555555555555555555555555");
+    assert.throws(
+      () => normalizeAuthorizationList([{chainId: 8453}, {chainId: 8453}]),
+      /at most one/,
+    );
   });
 
   it("serializes wallet grants with BigInt fields for local env handoff", () => {

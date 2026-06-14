@@ -6,6 +6,7 @@ import {encodeDelegations} from "@metamask/smart-accounts-kit/utils";
 import {buildUsdcTransferExecution} from "../../lib/haloAgentBridge.mjs";
 import {
   BASE_SEPOLIA_CHAIN_ID,
+  buildEstimateRequestFromPermissionContext,
   buildBaseSepoliaEstimateRequestFromPermissionContext,
   decodeMetaMaskPermissionContext,
 } from "../../lib/metaMaskPermissionDecoder.mjs";
@@ -52,7 +53,6 @@ describe("MetaMask permission context decoder", () => {
       permissionContext: encodedContext,
       executions: [execution],
       destinationUrl: "https://example.com/api/webhooks/1shot",
-      memo: "Halo Step 11 estimate",
       requestId: 11,
     });
 
@@ -61,8 +61,39 @@ describe("MetaMask permission context decoder", () => {
     assert.equal(report.request.method, "relayer_estimate7710Transaction");
     assert.equal(report.request.id, 11);
     assert.equal(report.params.chainId, "84532");
+    assert.equal(report.params.memo, undefined);
     assert.equal(report.params.transactions[0].executions[0].target, usdcToken.toLowerCase());
     assert.equal(report.params.transactions[0].permissionContext[0].salt, "0x1");
+  });
+
+  it("builds a profile-aware estimate request and passes through a single authorizationList entry", () => {
+    const execution = buildUsdcTransferExecution({
+      usdcToken,
+      recipient: "0x4444444444444444444444444444444444444444",
+      amount: 25_000_000,
+    });
+    const authorizationList = [
+      {
+        chainId: "0x2105",
+        address: "0x5555555555555555555555555555555555555555",
+        nonce: "0x1",
+        yParity: "0x0",
+        r: "0x" + "11".repeat(32),
+        s: "0x" + "22".repeat(32),
+      },
+    ];
+    const report = buildEstimateRequestFromPermissionContext({
+      permissionContext: encodedContext,
+      executions: [execution],
+      chainId: 8453,
+      authorizationList,
+      requestId: 21,
+    });
+
+    assert.equal(report.chainId, 8453);
+    assert.equal(report.params.chainId, "8453");
+    assert.deepEqual(report.params.authorizationList, authorizationList);
+    assert.equal(report.request.id, 21);
   });
 
   it("rejects malformed encoded permission context before estimate construction", () => {

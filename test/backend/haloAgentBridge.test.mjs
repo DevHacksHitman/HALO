@@ -69,7 +69,7 @@ describe("Halo backend bridge", () => {
       recipient: requester,
       amount: "25000000",
     });
-    assert.equal(draft.request.params.memo, "Halo treasurer grant payout");
+    assert.equal(draft.request.params.memo, undefined);
     assert.ok(draft.logs.some((line) => line.startsWith("[TREASURER]")));
   });
 

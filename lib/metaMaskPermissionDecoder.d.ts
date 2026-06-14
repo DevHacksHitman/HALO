@@ -1,7 +1,7 @@
 export const BASE_SEPOLIA_CHAIN_ID: 84532;
 
 export type DecodedPermissionEstimateReport = {
-  chainId: 84532;
+  chainId: number;
   estimateOnly: true;
   liveSendEnabled: false;
   decoded: {
@@ -21,15 +21,17 @@ export type DecodedPermissionEstimateReport = {
 
 export function decodeMetaMaskPermissionContext(encodedContext: string): DecodedPermissionEstimateReport["decoded"];
 
-export function buildBaseSepoliaEstimateRequestFromPermissionContext(args: {
+export function buildEstimateRequestFromPermissionContext(args: {
   permissionContext: string;
   executions: unknown[];
+  chainId?: number;
   destinationUrl?: string;
-  memo?: string;
   context?: string;
   taskId?: string;
   authorizationList?: unknown;
   requestId?: number;
 }): DecodedPermissionEstimateReport;
+
+export function buildBaseSepoliaEstimateRequestFromPermissionContext(args: Parameters<typeof buildEstimateRequestFromPermissionContext>[0]): DecodedPermissionEstimateReport;
 
 export function formatDecodedPermissionEstimateLogs(report: DecodedPermissionEstimateReport): string[];

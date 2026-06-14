@@ -1,5 +1,20 @@
 # Halo Mentor Checkpoints
 
+Viewed GrantStatusClient.tsx:75-105
+Edited GrantStatusClient.tsx
+
+That text is a concise way of describing the **lifecycle of a blockchain transaction** (specifically, one handled by a relayer). 
+
+Here is exactly what it means:
+
+*   **"In relay":** This is the category name. It means a transaction has been created and handed off to the 1Shot Relayer, but hasn't finished yet. It's "in flight" or "pending."
+*   **"0":** This is the number of transactions currently in this pending state. (A "0" here is good—it means you don't have any grants stuck waiting for the blockchain to process them).
+*   **"Submitted or tracked":** This means the Halo AI agent successfully submitted the request to the 1Shot API, and 1Shot has accepted it and is currently tracking its progress on the blockchain.
+*   **"Not terminal":** In systems engineering, a "terminal state" is an irreversible, final outcome. For a blockchain transaction, the terminal states are either `Success/Mined` (the money moved) or `Failed/Reverted` (the transaction died). So "not terminal" simply means *the final outcome hasn't been decided yet.*
+
+**Why this looks great for the judges:**
+It proves you understand the realities of asynchronous blockchain development. When you use a relayer, money doesn't move instantaneously. You have to handle pending states, and your UI explicitly accounts for grants that are currently "in the oven." It adds to the highly professional, engineering-first aesthetic of your app!
+
 Use these after each build milestone so the public journey and judge Q&A stay technically precise.
 
 ## Step 6: 1Shot ERC-7710 Relay Wrapper
@@ -254,7 +269,7 @@ A: Not by itself. It clears the grant-dependency question. Step 18 still require
 - [x] Require the estimate to return `success=true`.
 - [x] Require the estimate-returned context before building `relayer_send7710Transaction`.
 - [x] Require a 1Shot fee payment plan.
-- [x] Block send if the planned USDC fee payment differs from estimate `requiredPaymentAmount`.
+- [x] Adjust the fee execution to estimate `requiredPaymentAmount`, re-estimate, then block send if the final planned USDC fee still differs.
 - [x] Keep `HALO_ONESHOT_LIVE=0` for public proof recordings unless a live testnet send is explicitly approved.
 - [x] Redact raw MetaMask context, raw estimate context, and API key from logs.
 
@@ -267,7 +282,7 @@ Q: What opens the live-send gate?
 A: A real permission context, a fresh successful Base Sepolia estimate, returned estimate context, exact fee payment match, and `HALO_ONESHOT_LIVE=1`.
 
 Q: Why require the planned fee to match `requiredPaymentAmount` exactly?
-A: The relayer estimate is the quote boundary. Step 18 prevents using an old or oversized fee execution when the relayer says the required payment is a different amount.
+A: The relayer estimate is the quote boundary. Halo can start with a mock fee to identify the payment token, but before send it adjusts the fee execution to the estimate's `requiredPaymentAmount`, re-estimates, and only proceeds when the final planned fee matches the returned quote.
 
 Q: What happens after a live testnet send returns a task id?
 A: Halo should poll relayer status and wait for a signed webhook/status update before marking any grant paid.
@@ -309,6 +324,14 @@ A: It keeps the public proof audit-friendly without turning the build thread int
 - [x] Treat matching balance movement without TaskId/status as a reconciliation issue, not a paid claim.
 - [x] Block public paid claims unless relayer status or a signed webhook confirms success.
 - [x] Keep raw MetaMask context, estimate context, task id, tx hash, API key, and wallet addresses out of public logs.
+- [x] Confirm live retry can return a direct-string TaskId and exact expected USDC deltas while still refusing a paid claim when status is missing.
+
+### Live Outcome
+
+- Step 20 live send returned a direct-string 1Shot TaskId, redacted in logs as a hash.
+- `relayer_getStatus` returned `200`, tx hash was present, and `/status` synced the grant to `PAID`.
+- Balance reconciliation matched exactly: donor `-1,010,000` atoms, requester `+1,000,000` atoms, fee collector `+10,000` atoms.
+- Verdict: **GO** for public Step 20 direct Base Sepolia 1Shot relay/status proof.
 
 ### Q&A
 
@@ -320,3 +343,106 @@ A: No. Balance movement can help debug a relay response, but Halo's public paid 
 
 Q: What is the correct public status if Step 20 still has no TaskId and no movement?
 A: `NO-GO` for payout confirmation. The right public wording is a debug note: the gate held, no paid claim was made, and the next action is relayer/status reconciliation.
+
+## Step 21: Venice Live Verifier Proof
+
+### Checklist
+
+- [x] Use `VENICE_API_KEY` Bearer credits without printing the key.
+- [x] Generate a deterministic synthetic receipt locally and log only its hash.
+- [x] Call Venice chat completions with `VENICE_VISION_MODEL=google-gemma-3-27b-it`.
+- [x] Request strict JSON containing `valid`, `extracted_amount`, `category`, `reason`, and `grant_message`.
+- [x] Parse Venice output into Halo's grant decision logic.
+- [x] Keep x402 settlement, A2A, 7702 readiness, 1Shot send, and paid-state claims out of this step.
+
+### Q&A
+
+Q: Is Step 21 x402 settlement?
+A: No. Step 21 spends HackQuest Venice API credits through Bearer auth to prove live Venice intelligence. x402 settlement remains a separate Step 22 shadow/live track.
+
+Q: Why use a synthetic receipt?
+A: It keeps the proof deterministic and privacy-safe while showing the actual verifier path: receipt image plus urgent need becomes structured grant reasoning and a requester-facing message.
+
+Q: Can Step 21 mark a grant paid?
+A: No. Step 21 only makes a verification decision. Paid status still belongs to the 1Shot status/webhook boundary proven in Step 20.
+
+## Step 22: Venice x402 Shadow Probe
+
+### Checklist
+
+- [x] Call Venice `/x402/top-up` in discovery mode only.
+- [x] Send no `X-402-Payment` header.
+- [x] Treat HTTP `402` as expected x402 discovery behavior.
+- [x] Parse `PAYMENT-REQUIRED` header or response body fallback.
+- [x] Confirm Venice settlement targets Base mainnet USDC on `eip155:8453`.
+- [x] Hash `payTo` in public output.
+- [x] Report `@x402/core`, `@x402/fetch`, and `@metamask/x402` package readiness.
+- [x] Keep live settlement, A2A, 7702, 1Shot send, and paid-state claims out of this step.
+
+### Q&A
+
+Q: Why is `402` a GO condition here?
+A: On Venice `/x402/top-up`, a no-header `402` is the discovery response that returns the payment requirement. It is not a failed payment.
+
+Q: Did Step 22 spend USDC?
+A: No. Step 22 sends no `X-402-Payment` header and never signs or submits settlement.
+
+Q: What does this prove?
+A: It proves Halo can capture the real Venice x402 payment boundary: Base mainnet USDC, receiver boundary, amount atoms, and package readiness before wiring ERC-7710/A2A settlement.
+
+Q: Can Step 22 claim A2A or mainnet readiness?
+A: No. It is a shadow probe only. A2A requires a redelegation chain length `>=2`, and mainnet send remains future Step 24/25.
+
+## Step 23: A2A Redelegation Proof
+
+### Checklist
+
+- [x] Prove Verifier lane with ERC-7710 chain length `>=2`.
+- [x] Prove Treasurer lane with ERC-7710 chain length `>=2`.
+- [x] Require final delegate to match the 1Shot relayer target.
+- [x] Include direct donor-to-relayer delegation as a negative control.
+- [x] Reject direct delegation as `NO_GO_A2A_DIRECT_DELEGATION`.
+- [x] Hash donor/master identifiers and caveats in public output.
+- [x] Keep Venice calls, x402 settlement, 1Shot sends, status/webhook mutation, paid claims, and mainnet claims out of this step.
+
+### Q&A
+
+Q: What makes Step 23 A2A instead of a normal delegation?
+A: The proof requires a two-hop chain: donor smart account -> Master/Almoner -> final relay-compatible delegate. A one-hop donor -> relayer delegation is explicitly rejected.
+
+Q: Why show both Verifier and Treasurer lanes?
+A: Halo's A2A claim depends on specialized sub-agents with separate scopes: Verifier for Venice/x402 fee payment and Treasurer for approved requester payout.
+
+Q: Does Step 23 execute a transaction?
+A: No. It is deterministic local proof. Mainnet preflight remains Step 24 and live mainnet send remains Step 25.
+
+Q: When can Halo publicly claim A2A?
+A: Only when the report status is `CONDITIONAL_GO_A2A_REDELEGATION_READY`, chain length is `>=2`, lane is known, and the final delegate matches the relayer target.
+
+## Step 24: Base Mainnet Preflight
+
+### Checklist
+
+- [x] Force `HALO_CHAIN_PROFILE=base-mainnet`.
+- [x] Force `HALO_ONESHOT_LIVE=0`; Step 24 cannot send.
+- [x] Use the production 1Shot relayer endpoint.
+- [x] Fetch live relayer capabilities and treat `targetAddress` as authoritative.
+- [x] Require native Base mainnet USDC.
+- [x] Check grant and relayer-fee caps.
+- [x] Check 7702 readiness from account code, authorizationList, or deployed dependencies.
+- [x] Require A2A chain length `>=2` for Treasurer payout preflight.
+- [x] Keep TaskId, webhook mutation, `/status` mutation, paid claims, and mainnet send out of this step.
+
+### Q&A
+
+Q: Is Step 24 a mainnet payout?
+A: No. Step 24 is preflight only. It may run a live 1Shot estimate, but it forces live send off and cannot create a TaskId.
+
+Q: What makes Step 24 different from Step 23?
+A: Step 23 proves A2A locally. Step 24 checks whether the actual mainnet permission context is compatible with the production 1Shot target, Base USDC, caps, 7702 readiness, and A2A requirements.
+
+Q: What is a Step 24 GO?
+A: Either `CONDITIONAL_GO_MAINNET_ESTIMATE_SUCCEEDED` or `CONDITIONAL_GO_MAINNET_REPRICE_REQUIRED`. The second means the estimate succeeded, but Step 25 must rebuild/re-sign with the required fee amount before any send.
+
+Q: What remains before Step 25?
+A: A clean Step 24 preflight, matching estimate fee, funded Base mainnet wallet, real public webhook URL, `HALO_MAINNET_DEMO_ARMED=1`, and explicit live-send approval.

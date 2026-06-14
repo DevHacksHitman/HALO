@@ -3,9 +3,7 @@
 import {useMemo, useState} from "react";
 import type {PermissionRequestParameter} from "@metamask/smart-accounts-kit/actions";
 import {
-  BASE_SEPOLIA_CHAIN_ID,
-  BASE_SEPOLIA_CHAIN_ID_HEX,
-  BASE_SEPOLIA_USDC_ADDRESS,
+  BASE_MAINNET_CHAIN_ID,
   DEFAULT_MONTHLY_CAP_USDC,
   MONTH_SECONDS,
   createHaloPermissionRequest,
@@ -13,6 +11,7 @@ import {
   formatShortAddress,
   isHexAddress,
 } from "@/lib/haloPermissions.mjs";
+import {getHaloChainProfile} from "@/lib/chainProfiles.mjs";
 import {
   buildPermissionCaptureReport,
   formatPermissionCaptureLogs,
@@ -28,10 +27,20 @@ import {
   formatDependencyDeploymentLogs,
   redactDependencyDeploymentPlan,
   serializePermissionGrantForEnv,
+  summarizePermissionGrantShape,
 } from "@/lib/metaMaskPermissionGrant.mjs";
+import {
+  classifySmartAccount7702Readiness,
+  formatSmartAccount7702ReadinessLogs,
+} from "@/lib/metaMask7702Readiness.mjs";
 
-const DEFAULT_SESSION_ACCOUNT = process.env.NEXT_PUBLIC_HALO_SESSION_ACCOUNT_ADDRESS ?? "";
-const HALO_USDC_ADDRESS = process.env.NEXT_PUBLIC_HALO_USDC_ADDRESS || BASE_SEPOLIA_USDC_ADDRESS;
+const SELECTED_PROFILE = getClientChainProfile();
+const DEFAULT_RELAYER_TARGET = process.env.NEXT_PUBLIC_ONESHOT_RELAYER_TARGET_WALLET_ADDRESS ??
+  process.env.NEXT_PUBLIC_HALO_SESSION_ACCOUNT_ADDRESS ??
+  "";
+const HALO_USDC_ADDRESS = SELECTED_PROFILE.mainnet
+  ? SELECTED_PROFILE.usdcAddress
+  : process.env.NEXT_PUBLIC_HALO_USDC_ADDRESS || SELECTED_PROFILE.usdcAddress;
 const HALO_MONTHLY_CAP_USDC = process.env.NEXT_PUBLIC_HALO_MONTHLY_CAP_USDC || DEFAULT_MONTHLY_CAP_USDC;
 type PermissionCaptureReport = ReturnType<typeof buildPermissionCaptureReport>;
 type PermissionContextHandoff = ReturnType<typeof buildPermissionContextHandoff>;
@@ -52,7 +61,9 @@ function getEthereumProvider() {
 export function DonorPermissionClient() {
   const [donorAddress, setDonorAddress] = useState("");
   const [chainIdHex, setChainIdHex] = useState("");
-  const [sessionAccount, setSessionAccount] = useState(DEFAULT_SESSION_ACCOUNT);
+  const [relayerTargetAddress, setRelayerTargetAddress] = useState(DEFAULT_RELAYER_TARGET);
+  const [capabilitiesStatus, setCapabilitiesStatus] = useState<"idle" | "loading" | "ready" | "failed">("idle");
+  const [readinessStatus, setReadinessStatus] = useState("--");
   const [grantSummary, setGrantSummary] = useState<PermissionCaptureReport | null>(null);
   const [contextHandoff, setContextHandoff] = useState<PermissionContextHandoff | null>(null);
   const [capturedGrantJson, setCapturedGrantJson] = useState("");
@@ -60,25 +71,26 @@ export function DonorPermissionClient() {
   const [isBusy, setIsBusy] = useState(false);
   const [logs, setLogs] = useState<string[]>([
     "[MetaMask] Wallet client ready for donor action.",
-    "[SECURITY] Agent session address is an input; no private key enters the browser.",
+    "[SECURITY] Agent session address is an input, no private key enters the browser.",
   ]);
 
   const canRequest =
-    isHexAddress(donorAddress) && isHexAddress(sessionAccount) && chainIdHex === BASE_SEPOLIA_CHAIN_ID_HEX;
+    isHexAddress(donorAddress) && isHexAddress(relayerTargetAddress) && chainIdHex === SELECTED_PROFILE.chainIdHex;
 
   const permissionPreview = useMemo(() => {
-    if (!isHexAddress(donorAddress) || !isHexAddress(sessionAccount)) {
+    if (!isHexAddress(donorAddress) || !isHexAddress(relayerTargetAddress)) {
       return null;
     }
 
     return createSerializableHaloPermissionRequest({
       donorAddress,
-      sessionAccount,
+      relayerTargetAddress,
       usdcToken: HALO_USDC_ADDRESS,
+      chainId: SELECTED_PROFILE.chainId,
       monthlyCapUsdc: HALO_MONTHLY_CAP_USDC,
       nowSeconds: 1_766_000_000,
     });
-  }, [donorAddress, sessionAccount]);
+  }, [donorAddress, relayerTargetAddress]);
 
   const dependencyPlan = useMemo(() => {
     if (!grantSummary) {
@@ -112,6 +124,7 @@ export function DonorPermissionClient() {
       setChainIdHex(chain);
       addLog(`[MetaMask] Connected donor ${formatShortAddress(selected)}.`);
       addLog(`[EVM] Active chain ${chain}.`);
+      await check7702Readiness(selected);
     } catch (error) {
       addLog(`[NO-GO] Wallet connect failed: ${readableError(error)}.`);
     } finally {
@@ -119,7 +132,7 @@ export function DonorPermissionClient() {
     }
   }
 
-  async function switchToBaseSepolia() {
+  async function switchToSelectedChain() {
     const ethereum = getEthereumProvider();
     if (!ethereum) {
       addLog("[NO-GO] MetaMask provider not found.");
@@ -129,7 +142,7 @@ export function DonorPermissionClient() {
     try {
       await ethereum.request({
         method: "wallet_switchEthereumChain",
-        params: [{chainId: BASE_SEPOLIA_CHAIN_ID_HEX}],
+        params: [{chainId: SELECTED_PROFILE.chainIdHex}],
       });
     } catch (error) {
       if (!isAddChainError(error)) {
@@ -141,11 +154,11 @@ export function DonorPermissionClient() {
         method: "wallet_addEthereumChain",
         params: [
           {
-            chainId: BASE_SEPOLIA_CHAIN_ID_HEX,
-            chainName: "Base Sepolia",
+            chainId: SELECTED_PROFILE.chainIdHex,
+            chainName: SELECTED_PROFILE.label,
             nativeCurrency: {name: "Ether", symbol: "ETH", decimals: 18},
-            rpcUrls: ["https://sepolia.base.org"],
-            blockExplorerUrls: ["https://sepolia.basescan.org"],
+            rpcUrls: [SELECTED_PROFILE.defaultRpcUrl],
+            blockExplorerUrls: [SELECTED_PROFILE.blockExplorerUrl],
           },
         ],
       });
@@ -153,8 +166,54 @@ export function DonorPermissionClient() {
 
     const chain = (await ethereum.request({method: "eth_chainId"})) as string;
     setChainIdHex(chain);
-    addLog(`[EIP-7702] Base Sepolia selected for MetaMask Smart Account flow.`);
-    return chain === BASE_SEPOLIA_CHAIN_ID_HEX;
+    addLog(`[EIP-7702] ${SELECTED_PROFILE.label} selected for MetaMask Smart Account flow.`);
+    return chain === SELECTED_PROFILE.chainIdHex;
+  }
+
+  async function fetchRelayerCapabilities() {
+    setCapabilitiesStatus("loading");
+    try {
+      const response = await fetch(`/api/oneshot/capabilities?profile=${encodeURIComponent(SELECTED_PROFILE.id)}`);
+      const payload = await response.json();
+      if (!response.ok || !payload.ok || !isHexAddress(payload.targetAddress)) {
+        throw new Error(payload.error || "1Shot capabilities response did not include targetAddress");
+      }
+
+      setRelayerTargetAddress(payload.targetAddress);
+      setCapabilitiesStatus("ready");
+      addLog(`[1Shot] relayer targetAddress loaded from capabilities: ${formatShortAddress(payload.targetAddress)}.`);
+    } catch (error) {
+      setCapabilitiesStatus("failed");
+      addLog(`[NO-GO] Capabilities lookup failed: ${readableError(error)}.`);
+    }
+  }
+
+  async function check7702Readiness(address = donorAddress) {
+    const ethereum = getEthereumProvider();
+    if (!ethereum || !isHexAddress(address)) {
+      return;
+    }
+
+    try {
+      const [{createPublicClient, custom}, chains] = await Promise.all([
+        import("viem"),
+        import("viem/chains"),
+      ]);
+      const viemChain = SELECTED_PROFILE.chainId === BASE_MAINNET_CHAIN_ID ? chains.base : chains.baseSepolia;
+      const publicClient = createPublicClient({
+        chain: viemChain,
+        transport: custom(ethereum),
+      });
+      const accountCode = await publicClient.getCode({address: address as `0x${string}`});
+      const report = classifySmartAccount7702Readiness({accountCode});
+      setReadinessStatus(report.status);
+      for (const line of formatSmartAccount7702ReadinessLogs(report)) {
+        addLog(line);
+      }
+    } catch (error) {
+      setReadinessStatus("CHECK_FAILED");
+      addLog(`[NO-GO] 7702 readiness check failed: ${readableError(error)}.`);
+    }
   }
 
   async function requestAdvancedPermission() {
@@ -164,8 +223,8 @@ export function DonorPermissionClient() {
       return;
     }
 
-    if (!isHexAddress(sessionAccount)) {
-      addLog("[NO-GO] Enter the Halo agent session account address first.");
+    if (!isHexAddress(relayerTargetAddress)) {
+      addLog("[NO-GO] Fetch or enter the 1Shot relayer targetAddress first.");
       return;
     }
 
@@ -182,28 +241,30 @@ export function DonorPermissionClient() {
         throw new Error("No donor account selected");
       }
 
-      if (chainIdHex !== BASE_SEPOLIA_CHAIN_ID_HEX) {
-        const switched = await switchToBaseSepolia();
+      if (chainIdHex !== SELECTED_PROFILE.chainIdHex) {
+        const switched = await switchToSelectedChain();
         if (!switched) {
           return;
         }
       }
 
-      const [{createWalletClient, custom}, {baseSepolia}, {erc7715ProviderActions}] = await Promise.all([
+      const [{createWalletClient, custom}, chains, {erc7715ProviderActions}] = await Promise.all([
         import("viem"),
         import("viem/chains"),
         import("@metamask/smart-accounts-kit/actions"),
       ]);
+      const viemChain = SELECTED_PROFILE.chainId === BASE_MAINNET_CHAIN_ID ? chains.base : chains.baseSepolia;
 
       const walletClient = createWalletClient({
-        chain: baseSepolia,
+        chain: viemChain,
         transport: custom(ethereum),
       }).extend(erc7715ProviderActions());
 
       const request = createHaloPermissionRequest({
         donorAddress: donor,
-        sessionAccount,
+        relayerTargetAddress,
         usdcToken: HALO_USDC_ADDRESS,
+        chainId: SELECTED_PROFILE.chainId,
         monthlyCapUsdc: HALO_MONTHLY_CAP_USDC,
       }) as PermissionRequestParameter;
 
@@ -216,11 +277,18 @@ export function DonorPermissionClient() {
       const report = buildPermissionCaptureReport(grant, request);
       const handoff = buildPermissionContextHandoff(report);
       const nextDependencyPlan = buildDependencyDeploymentPlan({dependencies: report.summary.dependencies});
+      const grantShape = summarizePermissionGrantShape(grant);
+      const nextReadiness = classifySmartAccount7702Readiness({
+        authorizationList: grantShape.authorizationListPresent ? (grant as {authorizationList?: unknown[]}).authorizationList : undefined,
+        dependencyCount: nextDependencyPlan.dependencyCount,
+        dependenciesDeployed: nextDependencyPlan.dependenciesDeployed,
+      });
       const serializedGrant = serializePermissionGrantForEnv(grant);
       setGrantSummary(report);
       setContextHandoff(handoff);
       setCapturedGrantJson(serializedGrant);
       setDependencyTxs([]);
+      setReadinessStatus(nextReadiness.status);
       for (const line of formatPermissionCaptureLogs(report)) {
         addLog(line);
       }
@@ -228,6 +296,9 @@ export function DonorPermissionClient() {
         addLog(line);
       }
       for (const line of formatDependencyDeploymentLogs(nextDependencyPlan)) {
+        addLog(line);
+      }
+      for (const line of formatSmartAccount7702ReadinessLogs(nextReadiness)) {
         addLog(line);
       }
     } catch (error) {
@@ -319,8 +390,8 @@ export function DonorPermissionClient() {
         throw new Error("No donor account selected");
       }
 
-      if (chainIdHex !== BASE_SEPOLIA_CHAIN_ID_HEX) {
-        const switched = await switchToBaseSepolia();
+      if (chainIdHex !== SELECTED_PROFILE.chainIdHex) {
+        const switched = await switchToSelectedChain();
         if (!switched) {
           return;
         }
@@ -369,18 +440,23 @@ export function DonorPermissionClient() {
 
       <div className="permission-grid">
         <label>
-          Agent session account
+          1Shot relayer target
           <input
-            value={sessionAccount}
-            onChange={(event) => setSessionAccount(event.target.value.trim())}
+            value={relayerTargetAddress}
+            onChange={(event) => setRelayerTargetAddress(event.target.value.trim())}
             placeholder="0x..."
             spellCheck={false}
           />
         </label>
         <div className="permission-readout">
+          <span>Profile</span>
+          <strong>{SELECTED_PROFILE.label}</strong>
+          <small>{SELECTED_PROFILE.id}</small>
+        </div>
+        <div className="permission-readout">
           <span>Token</span>
           <strong>{formatShortAddress(HALO_USDC_ADDRESS)}</strong>
-          <small>Base Sepolia USDC</small>
+          <small>{SELECTED_PROFILE.chainId === BASE_MAINNET_CHAIN_ID ? "Base mainnet USDC" : "Base Sepolia USDC"}</small>
         </div>
         <div className="permission-readout">
           <span>Allowance</span>
@@ -393,8 +469,11 @@ export function DonorPermissionClient() {
         <button className="secondary-button" type="button" onClick={connectWallet} disabled={isBusy}>
           Connect MetaMask
         </button>
-        <button className="secondary-button" type="button" onClick={switchToBaseSepolia} disabled={isBusy}>
-          Base Sepolia
+        <button className="secondary-button" type="button" onClick={fetchRelayerCapabilities} disabled={isBusy || capabilitiesStatus === "loading"}>
+          Fetch relayer target
+        </button>
+        <button className="secondary-button" type="button" onClick={switchToSelectedChain} disabled={isBusy}>
+          {SELECTED_PROFILE.label}
         </button>
         <button className="primary-button" type="button" onClick={requestAdvancedPermission} disabled={isBusy}>
           Request permission
@@ -411,12 +490,24 @@ export function DonorPermissionClient() {
           <strong>{chainIdHex || "not connected"}</strong>
         </div>
         <div>
+          <span>Relayer</span>
+          <strong>{formatShortAddress(relayerTargetAddress)}</strong>
+        </div>
+        <div>
           <span>Context</span>
-          <strong>{grantSummary ? grantSummary.summary.contextPreview : "pending"}</strong>
+          <strong>{grantSummary ? grantSummary.summary.contextPreview : "--"}</strong>
         </div>
         <div>
           <span>Dependencies</span>
-          <strong>{dependencyPlan ? `${dependencyPlan.deployedCount}/${dependencyPlan.dependencyCount}` : "pending"}</strong>
+          <strong>{dependencyPlan ? `${dependencyPlan.deployedCount}/${dependencyPlan.dependencyCount}` : "--"}</strong>
+        </div>
+        <div>
+          <span>Auth list</span>
+          <strong>{grantSummary ? `${grantSummary.summary.authorizationListCount ?? 0}` : "--"}</strong>
+        </div>
+        <div>
+          <span>7702</span>
+          <strong>{readinessStatus}</strong>
         </div>
       </div>
 
@@ -501,6 +592,14 @@ function readableError(error: unknown) {
 
 function isAddChainError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && Number((error as {code: unknown}).code) === 4902;
+}
+
+function getClientChainProfile() {
+  try {
+    return getHaloChainProfile(process.env.NEXT_PUBLIC_HALO_CHAIN_PROFILE || "base-sepolia");
+  } catch {
+    return getHaloChainProfile("base-sepolia");
+  }
 }
 
 function formatShortHash(hash: string) {
