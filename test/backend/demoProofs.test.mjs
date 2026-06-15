@@ -62,6 +62,11 @@ describe("frontend demo proof helpers", () => {
     assert.equal(proof.report.decision.approved, true);
     assert.equal(proof.report.requesterMessage, "Your inhaler refill has been verified.");
     assert.equal(capturedInit.headers.Authorization, "Bearer VENICE_INFERENCE_KEY_secret");
+    const body = JSON.parse(capturedInit.body);
+    assert.match(body.messages[0].content[0].text, /Local receipt fields shown in the requester UI/);
+    assert.match(body.messages[0].content[0].text, /HALO COMMUNITY PHARMACY/);
+    assert.match(body.messages[0].content[0].text, /Asthma inhaler refill/);
+    assert.match(body.messages[0].content[0].text, /Total: \$25\.00/);
     assert.equal(serialized.includes("VENICE_INFERENCE_KEY_secret"), false);
     assert.equal(serialized.includes("data:image"), false);
     assert.equal(proof.request.receiptDataUrlReturned, false);
